@@ -10,9 +10,12 @@ import { useUser } from '@clerk/nextjs'
 import type { UIMessage } from 'ai'
 import { useSearchParams } from 'next/navigation'
 import { parseAsBoolean, parseAsStringLiteral, useQueryState } from 'nuqs'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
+import { ChatContainer } from './chat-container'
+import { Loader } from './loader'
 import { Messages } from './messages'
+import { ScrollButton } from './scroll-button'
 
 interface UserMessagesProps {
   messages: UIMessage[]
@@ -76,9 +79,40 @@ export default function UserMessages({ messages }: UserMessagesProps) {
     saveUserMessages()
   }, [status])
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
   return (
-    <>
-      {messages.length > 0 ? (
+    // <>
+    //   {messages.length > 0 ? (
+    //     <Messages
+    //       messages={messages}
+    //       status={status}
+    //       fetchStatus={fetchStatus}
+    //       reload={reload}
+    //       setMessages={setMessages}
+    //     />
+    //   ) : (
+    //     <div className="flex w-full flex-col gap-0.5 text-xl sm:text-2xl">
+    //       <div className="flex flex-row items-center gap-2">
+    //         <div>Welcome👋</div>
+    //       </div>
+    //       <div className="text-neutral-400 dark:text-neutral-500">
+    //         What would you like me to think about today?
+    //       </div>
+    //     </div>
+    //   )}
+    // </>
+    <div className="relative flex h-full w-full flex-col items-center overflow-y-auto overflow-x-hidden">
+      <ChatContainer
+        className="relative flex w-full flex-col items-center pt-20 pb-4"
+        autoScroll={true}
+        ref={containerRef}
+        scrollToRef={scrollRef}
+        style={{
+          scrollbarGutter: 'stable both-edges',
+        }}
+      >
         <Messages
           messages={messages}
           status={status}
@@ -86,16 +120,21 @@ export default function UserMessages({ messages }: UserMessagesProps) {
           reload={reload}
           setMessages={setMessages}
         />
-      ) : (
-        <div className="flex w-full flex-col gap-0.5 text-xl sm:text-2xl">
-          <div className="flex flex-row items-center gap-2">
-            <div>Welcome👋</div>
-          </div>
-          <div className="text-neutral-400 dark:text-neutral-500">
-            What would you like me to think about today?
-          </div>
-        </div>
-      )}
-    </>
+        {status === 'submitted' &&
+          messages.length > 0 &&
+          messages[messages.length - 1].role === 'user' && (
+            <div className="group flex min-h-scroll-anchor w-full max-w-3xl flex-col items-start gap-2 px-6 pb-2">
+              <Loader visible={true} />
+            </div>
+          )}
+      </ChatContainer>
+      <div className="absolute bottom-0 w-full max-w-3xl">
+        <ScrollButton
+          className="absolute top-[-50px] right-[30px]"
+          scrollRef={scrollRef}
+          containerRef={containerRef}
+        />
+      </div>
+    </div>
   )
 }

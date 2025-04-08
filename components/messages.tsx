@@ -359,18 +359,6 @@ function AnnotationDisplay({
   )
 }
 
-// const preprocessLaTeX = (content: string) => {
-//   const blockProcessedContent = content.replace(
-//     /\\\[([\s\S]*?)\\]/g,
-//     (_, equation) => `$$${equation}$$`
-//   )
-//
-//   return blockProcessedContent.replace(
-//     /\\\(([\s\S]*?)\\\)/g,
-//     (_, equation) => `$${equation}$`
-//   )
-// }
-
 // Memoize TextMessagePart to prevent unnecessary re-renders
 const MemoizedTextMessagePart = memo(
   ({ text }: TextMessagePartProps) => (
@@ -589,137 +577,7 @@ export function Messages({
   reload,
   setMessages,
 }: MessagesProps) {
-  const messagesRef = useRef<HTMLDivElement>(null)
-  const [showScrollButton, setShowScrollButton] = useState(false)
-  const [scrollButtonPosition, setScrollButtonPosition] = useState({
-    left: 0,
-    width: 0,
-  })
-  const [initialRenderComplete, setInitialRenderComplete] = useState(false)
   const bottomAnchorRef = useRef<HTMLDivElement>(null)
-
-  // Use a ref to track the current message ID to detect session changes
-  const previousMessagesRef = useRef<string>('')
-  const prevMessagesLengthRef = useRef<number>(0)
-
-  // Use layout effect to scroll before browser paint
-  const scrollToBottomImmediately = () => {
-    if (bottomAnchorRef.current) {
-      bottomAnchorRef.current.scrollIntoView({ behavior: 'auto' })
-    } else {
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: 'auto',
-      })
-    }
-  }
-
-  // Initial render handling
-  useEffect(() => {
-    setInitialRenderComplete(true)
-    scrollToBottomImmediately()
-    // Only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Reset scroll button state and scroll to bottom when switching between sessions
-  useLayoutEffect(() => {
-    if (!initialRenderComplete) return
-
-    // Create a message ID signature to identify the session
-    const currentMessagesSignature = messages.map((m) => m.id).join('-')
-
-    // Check if the messages have changed significantly (session switch)
-    if (
-      previousMessagesRef.current &&
-      previousMessagesRef.current !== currentMessagesSignature &&
-      messages.length > 0
-    ) {
-      // Reset scroll button state
-      setShowScrollButton(false)
-
-      // Immediately scroll to bottom without animation
-      scrollToBottomImmediately()
-    }
-    // Also scroll to bottom when first message appears in a new conversation
-    else if (prevMessagesLengthRef.current === 0 && messages.length > 0) {
-      scrollToBottomImmediately()
-    }
-
-    // Update the refs with current messages signature and length
-    previousMessagesRef.current = currentMessagesSignature
-    prevMessagesLengthRef.current = messages.length
-  }, [messages, initialRenderComplete])
-
-  // Calculate position for the scroll button based on window size
-  useEffect(() => {
-    const updateScrollButtonPosition = () => {
-      if (messagesRef.current) {
-        const rect = messagesRef.current.getBoundingClientRect()
-        setScrollButtonPosition({
-          left: rect.left + rect.width / 2,
-          width: rect.width,
-        })
-      }
-    }
-
-    // Initialize position
-    updateScrollButtonPosition()
-
-    // Add window resize event listener
-    window.addEventListener('resize', updateScrollButtonPosition)
-
-    return () => {
-      window.removeEventListener('resize', updateScrollButtonPosition)
-    }
-  }, [])
-
-  // Add window scroll event handler to show/hide scroll button
-  useEffect(() => {
-    const handleScroll = () => {
-      // Calculate distance from bottom of page
-      const scrollPosition = window.scrollY + window.innerHeight
-      const bottomOfPage = document.body.scrollHeight
-
-      // Show button when scrolled up at least 50px from bottom
-      const isScrolledUp = bottomOfPage - scrollPosition > 50
-      setShowScrollButton(isScrolledUp)
-    }
-
-    window.addEventListener('scroll', handleScroll)
-
-    // Run the scroll handler immediately to set correct initial state
-    handleScroll()
-
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  // Use a separate effect to check if we need to show the scroll button when messages change
-  useEffect(() => {
-    // Check if we're scrolled away from bottom and should show the button
-    const scrollPosition = window.scrollY + window.innerHeight
-    const bottomOfPage = document.body.scrollHeight
-    const isScrolledUp = bottomOfPage - scrollPosition > 50
-
-    if (!showScrollButton && isScrolledUp) {
-      setShowScrollButton(isScrolledUp)
-    } else if (showScrollButton && !isScrolledUp) {
-      setShowScrollButton(false)
-    }
-  }, [messages, showScrollButton])
-
-  const scrollToBottom = () => {
-    if (bottomAnchorRef.current) {
-      bottomAnchorRef.current.scrollIntoView({
-        behavior: 'smooth' as ScrollBehavior,
-      })
-    } else {
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: 'smooth' as ScrollBehavior,
-      })
-    }
-  }
 
   const setMessagesAndReload = (messages: Array<UIMessage>) => {
     if (setMessages) {
@@ -735,18 +593,8 @@ export function Messages({
     [messages]
   )
 
-  // If it's the initial render, we can optionally show a minimal placeholder or loading state
-  if (!initialRenderComplete) {
-    return <div className="w-full" ref={messagesRef} />
-  }
-
   return (
-    <div
-      className={cn('relative w-full flex-col items-center gap-4 pb-36', {
-        'pb-48': status !== 'ready',
-      })}
-      ref={messagesRef}
-    >
+    <div className={cn('relative w-full flex-col items-center gap-4')}>
       {messages.map((message, messageIndex) => (
         <Message
           key={`message-${message.id}-${messageIndex}`}
@@ -785,26 +633,6 @@ export function Messages({
 
       {/* Invisible element at bottom to serve as a scroll anchor */}
       <div ref={bottomAnchorRef} style={{ height: '1px', width: '100%' }} />
-
-      <AnimatePresence initial={false}>
-        {/* Scroll to bottom button */}
-        {showScrollButton && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8, filter: 'blur(5px)' }}
-            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, scale: 0.8, filter: 'blur(5px)' }}
-            className="-ml-[12px] fixed bottom-[150px] z-10 flex size-6 items-center justify-center rounded-full bg-black shadow-md transition-colors hover:bg-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600"
-            style={{
-              left: `${scrollButtonPosition.left}px`,
-              transform: 'translateX(-50%)',
-            }}
-            onClick={scrollToBottom}
-            title="Scroll to bottom"
-          >
-            <ArrowDownIcon className="size-3 text-neutral-100 dark:text-neutral-200" />
-          </motion.button>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
